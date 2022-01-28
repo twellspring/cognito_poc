@@ -45,7 +45,7 @@ def create_session(credentials):
 def get_s3(session):
     client = session.client('s3')
     response = client.list_buckets()
-    print(response)
+    print(json.dumps(response, indent=4, default=str))
 
 
 def main():
