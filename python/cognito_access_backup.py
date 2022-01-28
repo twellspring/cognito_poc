@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import json
+import boto3
+from dotenv import load_dotenv, find_dotenv
+
+
+def login():
+    client = boto3.client("cognito-idp", region_name="us-east-1")
+    response = client.initiate_auth(
+        ClientId=os.getenv("COGNITO_USER_CLIENT_ID"),
+        AuthFlow="USER_PASSWORD_AUTH",
+        AuthParameters={"USERNAME": os.getenv("USERNAME"), "PASSWORD": os.getenv("PASSWORD")},
+    )
+    id_token = response["AuthenticationResult"]["IdToken"]
+    return id_token
+
+
+def get_credentials(id_token):
+    client = boto3.client('cognito-identity')
+    response = client.get_id(AccountId=os.getenv("ACCOUNT_ID"), IdentityPoolId=os.getenv("IDENTITY_POOL_ID")
+                             )
+    identity_id = response["IdentityId"]
+    # print(response)
+
+    response = client.get_credentials_for_identity(IdentityId=identity_id)
+    credentials = response["Credentials"]
+    return credentials
+
+
+def create_session(credentials):
+    session = boto3.session.Session(
+        aws_access_key_id=credentials["AccessKeyId"],
+        aws_secret_access_key=credentials["SecretKey"],
+        aws_session_token=credentials["SessionToken"]
+    )
+    return session
+
+
+def get_s3(session):
+    client = session.client('s3')
+    response = client.list_buckets()
+    print(response)
+
+
+def main():
+    load_dotenv(find_dotenv())
+    id_token = login()
+    credentials = get_credentials(id_token)
+    print(credentials)
+    session = create_session(credentials)
+    client = session.client('sts')
+    print(client.get_caller_identity())
+    # get_s3(session)
+
+
+if __name__ == '__main__':
+    main()
